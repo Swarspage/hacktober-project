@@ -40,22 +40,22 @@ The legal technology landscape suffers from a massive information asymmetry: ins
 
 ```mermaid
 flowchart TD
-    A[Contract Text / Sample Lease] --> B[Express / Node API Server]
-    B --> C[Google Gemini Minimal-Thinking Engine]
-    C --> D[Verbatim Quote Grounding Filter]
-    D --> E[Mathematical Risk Score Engine 0-100]
+    A["Contract Text / Sample Lease"] --> B["Express / Node API Server"]
+    B --> C["Google Gemini Minimal-Thinking Engine"]
+    C --> D["Verbatim Quote Grounding Filter"]
+    D --> E["Mathematical Risk Score Engine (0-100)"]
     
-    subgraph Frontend Studio [Inspection & Negotiation Workspace]
-        E --> F1[Document Viewer with In-Text Highlights]
-        E --> F2[Dynamic Circular Risk Gauge & Letter Grade]
-        E --> F3[6-Dimension Category Risk Breakdown]
-        E --> F4[Interactive Negotiation Cards & Redlines]
-        E --> F5[Missing Safeguards Detector & Clause Inserter]
+    subgraph Studio ["Inspection & Negotiation Workspace"]
+        E --> F1["Document Viewer with In-Text Highlights"]
+        E --> F2["Dynamic Circular Risk Gauge & Letter Grade"]
+        E --> F3["6-Dimension Category Risk Breakdown"]
+        E --> F4["Interactive Negotiation Cards & Redlines"]
+        E --> F5["Missing Safeguards Detector & Clause Inserter"]
     end
     
-    F4 --> G[Post-Negotiation Projected Risk Reduction]
-    F4 --> H[Export Hub: Addendum, Email & WhatsApp]
-    Frontend Studio -. User Tunable Weights .-> I[Risk Model Configuration Drawer]
+    F4 --> G["Post-Negotiation Projected Risk Reduction"]
+    F4 --> H["Export Hub: Addendum, Email & WhatsApp"]
+    I["Risk Model Configuration Drawer"] -.->|"User Tunable Weights"| E
 ```
 
 ---
