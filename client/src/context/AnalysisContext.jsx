@@ -1,6 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { SAMPLES } from '../samples';
 import { useAnalyze } from '../useAnalyze';
+import {
+  calculateRiskMetrics,
+  loadUserRiskConfig,
+  saveUserRiskConfig,
+} from '../services/riskEngine';
 
 const AnalysisContext = createContext(null);
 
@@ -10,6 +15,15 @@ export function AnalysisProvider({ children }) {
   const [selectedSampleId, setSelectedSampleId] = useState(SAMPLES[0]?.id || '');
   const [activeHighlightQuote, setActiveHighlightQuote] = useState(null);
 
+  // Dynamic Risk Engine Configuration
+  const [riskConfig, setRiskConfigState] = useState(() => loadUserRiskConfig());
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+
+  // Negotiation Management States
+  const [negotiationStates, setNegotiationStates] = useState({});
+  const [customClauses, setCustomClauses] = useState({});
+
   const analyzeState = useAnalyze();
 
   // Keep <html lang> synchronized
@@ -17,14 +31,57 @@ export function AnalysisProvider({ children }) {
     document.documentElement.lang = language;
   }, [language]);
 
-  const loadSample = (sampleId = selectedSampleId) => {
+  // Persist risk config changes
+  const updateRiskConfig = useCallback((newConfig) => {
+    setRiskConfigState(newConfig);
+    saveUserRiskConfig(newConfig);
+  }, []);
+
+  // Reset negotiation state on new analysis/sample
+  const resetNegotiations = useCallback(() => {
+    setNegotiationStates({});
+    setCustomClauses({});
+    setActiveHighlightQuote(null);
+  }, []);
+
+  const loadSample = useCallback((sampleId = selectedSampleId) => {
     setSelectedSampleId(sampleId);
+    resetNegotiations();
     const chosen = SAMPLES.find((s) => s.id === sampleId) || SAMPLES[0];
     if (chosen) {
       setText(chosen.content);
     }
     return chosen?.content || '';
-  };
+  }, [selectedSampleId, resetNegotiations]);
+
+  const loadAndAnalyzeSample = useCallback((sampleId) => {
+    setSelectedSampleId(sampleId);
+    resetNegotiations();
+    const chosen = SAMPLES.find((s) => s.id === sampleId) || SAMPLES[0];
+    if (chosen) {
+      setText(chosen.content);
+      analyzeState.analyze(chosen.content, language);
+    }
+  }, [language, resetNegotiations, analyzeState]);
+
+  const updateNegotiationState = useCallback((clauseIdx, status) => {
+    setNegotiationStates((prev) => ({
+      ...prev,
+      [clauseIdx]: status,
+    }));
+  }, []);
+
+  const updateCustomClause = useCallback((clauseIdx, customText) => {
+    setCustomClauses((prev) => ({
+      ...prev,
+      [clauseIdx]: customText,
+    }));
+  }, []);
+
+  // Real-time Dynamic Risk Metric Calculation
+  const riskMetrics = useMemo(() => {
+    return calculateRiskMetrics(analyzeState.result, riskConfig, negotiationStates);
+  }, [analyzeState.result, riskConfig, negotiationStates]);
 
   const value = {
     text,
@@ -34,16 +91,24 @@ export function AnalysisProvider({ children }) {
     selectedSampleId,
     setSelectedSampleId,
     loadSample,
-    loadAndAnalyzeSample: (sampleId) => {
-      setSelectedSampleId(sampleId);
-      const chosen = SAMPLES.find((s) => s.id === sampleId) || SAMPLES[0];
-      if (chosen) {
-        setText(chosen.content);
-        analyzeState.analyze(chosen.content, language);
-      }
-    },
+    loadAndAnalyzeSample,
     activeHighlightQuote,
     setActiveHighlightQuote,
+    // Risk Engine
+    riskConfig,
+    setRiskConfig: updateRiskConfig,
+    riskMetrics,
+    isConfigModalOpen,
+    setIsConfigModalOpen,
+    // Negotiation & Redlines
+    negotiationStates,
+    updateNegotiationState,
+    customClauses,
+    updateCustomClause,
+    resetNegotiations,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    // Core analysis hook state
     ...analyzeState,
   };
 

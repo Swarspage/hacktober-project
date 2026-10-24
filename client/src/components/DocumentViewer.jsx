@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import { useAnalysisContext } from '../context/AnalysisContext';
 
 export default function DocumentViewer({ flags = [] }) {
-  const { text, activeHighlightQuote, setActiveHighlightQuote, language, status, loadSample, SAMPLES } = useAnalysisContext();
+  const { text, activeHighlightQuote, setActiveHighlightQuote, language, status } = useAnalysisContext();
   const activeQuoteRef = useRef(null);
 
   const isScanning = status === 'loading';

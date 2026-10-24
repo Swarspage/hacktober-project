@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAnalysisContext } from '../context/AnalysisContext';
 import { SAMPLES } from '../samples';
 import DocumentViewer from '../components/DocumentViewer';
-import FlagCard from '../components/FlagCard';
+import NegotiationCard from '../components/NegotiationCard';
+import RiskScoreGauge from '../components/RiskScoreGauge';
+import RiskConfigModal from '../components/RiskConfigModal';
+import NegotiationExportModal from '../components/NegotiationExportModal';
+import MissingClausesSection from '../components/MissingClausesSection';
+import { classifyCategory } from '../services/riskEngine';
 
 const AUDIT_PIPELINE = [
   {
@@ -76,7 +81,6 @@ function StudioLoadingState({ elapsedSeconds, language, onCancel }) {
 
   return (
     <div className="studio-loading-engine fade-in" aria-live="polite" aria-busy="true">
-      {/* Live Engine Header Card */}
       <div className="loading-engine-card">
         <div className="loading-card-top">
           <div className="engine-status-badge">
@@ -90,13 +94,11 @@ function StudioLoadingState({ elapsedSeconds, language, onCancel }) {
 
         <h3 className="loading-engine-headline">{currentMessage}</h3>
 
-        {/* Animated Scanner Progress Bar */}
         <div className="loading-progress-track">
           <div className="loading-progress-bar" />
         </div>
       </div>
 
-      {/* Live Verification Pipeline */}
       <div className="pipeline-card">
         <div className="pipeline-header">
           <span className="pipeline-title">
@@ -150,7 +152,6 @@ function StudioLoadingState({ elapsedSeconds, language, onCancel }) {
         </div>
       </div>
 
-      {/* Trust & Cancel Bar */}
       <div className="loading-footer-row">
         <span className="loading-trust-tag">
           🔒 {language === 'hi' ? 'गूगल जेमिनी इंजन • शून्य दस्तावेज़ भंडारण' : 'Google Gemini Minimal-Thinking Engine • Zero Storage'}
@@ -169,7 +170,6 @@ function StudioLoadingState({ elapsedSeconds, language, onCancel }) {
 export default function ReportPage() {
   const {
     text,
-    setText,
     language,
     status,
     result,
@@ -179,56 +179,72 @@ export default function ReportPage() {
     loadAndAnalyzeSample,
     analyze,
     cancel,
+    // Risk Engine
+    riskConfig,
+    setRiskConfig,
+    riskMetrics,
+    isConfigModalOpen,
+    setIsConfigModalOpen,
+    // Negotiation States
+    negotiationStates,
+    updateNegotiationState,
+    customClauses,
+    updateCustomClause,
+    isExportModalOpen,
+    setIsExportModalOpen,
   } = useAnalysisContext();
 
   const navigate = useNavigate();
-  const [copiedAll, setCopiedAll] = useState(false);
+  const [clauseFilter, setClauseFilter] = useState('all');
 
-  // If text is completely empty on load, initialize with the default sample
   React.useEffect(() => {
     if (!text && SAMPLES.length > 0) {
       loadAndAnalyzeSample(SAMPLES[0].id);
     }
   }, [text, loadAndAnalyzeSample]);
 
-  const handleCopyAllNegotiations = () => {
-    if (!result?.flags || result.flags.length === 0) return;
+  const flags = useMemo(() => (Array.isArray(result?.flags) ? result.flags : []), [result]);
 
-    let emailDraft = `Dear Owner,\n\nRegarding the Leave and Licence agreement, I would like to request clarification and adjustments on the following clauses:\n\n`;
-
-    result.flags.forEach((f, idx) => {
-      emailDraft += `${idx + 1}. [${f.category || 'Clause'}]\n`;
-      emailDraft += `Current text: "${f.quote}"\n`;
-      emailDraft += `Requested adjustment: ${f.what_to_ask}\n\n`;
+  const filteredFlags = useMemo(() => {
+    return flags.filter((flag, idx) => {
+      const state = negotiationStates[idx] || 'pending';
+      if (clauseFilter === 'all') return true;
+      if (clauseFilter === 'dealbreaker') return state === 'dealbreaker';
+      if (clauseFilter === 'pending') return state === 'pending' || state === 'dealbreaker';
+      if (clauseFilter === 'negotiated') return state === 'negotiated' || state === 'waived';
+      if (clauseFilter === 'financial') {
+        const cat = classifyCategory(flag.category, flag.quote, flag.why_risky);
+        return cat === 'financial';
+      }
+      if (clauseFilter === 'lockin') {
+        const cat = classifyCategory(flag.category, flag.quote, flag.why_risky);
+        return cat === 'lockin';
+      }
+      return true;
     });
+  }, [flags, clauseFilter, negotiationStates]);
 
-    if (result.missing && result.missing.length > 0) {
-      emailDraft += `Additionally, please clarify the following missing points:\n`;
-      result.missing.forEach((m) => {
-        emailDraft += `- ${m}\n`;
-      });
-      emailDraft += `\n`;
-    }
+  const negotiatedCount = useMemo(() => {
+    return Object.values(negotiationStates).filter(
+      (s) => s === 'negotiated' || s === 'waived'
+    ).length;
+  }, [negotiationStates]);
 
-    emailDraft += `Thank you for your understanding.\nBest regards,\nTenant`;
-
-    navigator.clipboard.writeText(emailDraft);
-    setCopiedAll(true);
-    setTimeout(() => setCopiedAll(false), 2500);
-  };
-
-  const getRiskLabel = (level) => {
-    const norm = (level || '').toLowerCase();
-    if (norm === 'high') return language === 'hi' ? 'उच्च जोखिम' : 'High Risk';
-    if (norm === 'medium') return language === 'hi' ? 'मध्यम जोखिम' : 'Medium Risk';
-    return language === 'hi' ? 'कम जोखिम' : 'Low Risk';
-  };
+  const dealbreakerCount = useMemo(() => {
+    return Object.values(negotiationStates).filter((s) => s === 'dealbreaker').length;
+  }, [negotiationStates]);
 
   const getRiskBadgeClass = (level) => {
-    const norm = (level || '').toLowerCase();
-    if (norm === 'high') return 'risk-high';
-    if (norm === 'medium') return 'risk-medium';
-    return 'risk-low';
+    switch (level) {
+      case 'critical':
+      case 'high':
+        return 'risk-high';
+      case 'medium':
+        return 'risk-medium';
+      case 'low':
+      default:
+        return 'risk-low';
+    }
   };
 
   return (
@@ -241,7 +257,6 @@ export default function ReportPage() {
               ← {language === 'hi' ? 'होम' : 'Home'}
             </Link>
 
-            {/* In-Studio Agreement Switcher */}
             <div className="agreement-switcher-wrap">
               <label htmlFor="studio-agreement-select" className="switcher-label">
                 {language === 'hi' ? 'सक्रिय समझौता:' : 'Active Agreement:'}
@@ -286,17 +301,33 @@ export default function ReportPage() {
           <div className="studio-topbar-actions">
             {status === 'success' && result && (
               <>
-                <div className={`risk-badge ${getRiskBadgeClass(result.overall_risk)}`}>
+                <div
+                  className={`risk-badge ${getRiskBadgeClass(riskMetrics.riskLevel)} cursor-pointer`}
+                  onClick={() => setIsConfigModalOpen(true)}
+                  title="Click to view & configure risk calculation model"
+                >
                   <span className="risk-dot" aria-hidden="true" />
-                  <span>{getRiskLabel(result.overall_risk)}</span>
+                  <span>
+                    {language === 'hi' ? 'जोखिम सूचकांक:' : 'Risk Index:'}{' '}
+                    <strong>{riskMetrics.currentScore}/100</strong> ({riskMetrics.grade})
+                  </span>
                 </div>
 
                 <button
                   type="button"
-                  className={`btn btn-secondary btn-sm ${copiedAll ? 'copied-btn' : ''}`}
-                  onClick={handleCopyAllNegotiations}
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setIsConfigModalOpen(true)}
+                  title="Configure severity points, category multipliers, and risk thresholds"
                 >
-                  {copiedAll ? '✓ Copied Email Draft' : '📋 Copy All Counter-Offers'}
+                  ⚙️ {language === 'hi' ? 'मॉडल सेटिंग्स' : 'Configure Model'}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm export-hub-btn"
+                  onClick={() => setIsExportModalOpen(true)}
+                >
+                  📜 {language === 'hi' ? 'बातचीत पैकेट तैयार करें' : 'Negotiation Packet'}
                 </button>
               </>
             )}
@@ -305,14 +336,11 @@ export default function ReportPage() {
       </div>
 
       <div className="studio-content-container">
-        {/* Split Screen Layout: Left Document always visible, Right shows Loading or Results */}
         <div className="studio-split-grid">
-          {/* Left Column: Interactive Document Viewer */}
           <div className="studio-left-pane">
             <DocumentViewer flags={result?.flags || []} />
           </div>
 
-          {/* Right Column: Loading Engine or Results Audit */}
           <div className="studio-right-pane">
             {/* 1. LOADING STATE */}
             {status === 'loading' && (
@@ -353,7 +381,7 @@ export default function ReportPage() {
               </div>
             )}
 
-            {/* 4. IDLE STATE (If arrived with text but analysis not started) */}
+            {/* 4. IDLE STATE */}
             {status === 'idle' && (
               <div className="studio-idle-card fade-in">
                 <h3 className="idle-card-title">
@@ -377,14 +405,20 @@ export default function ReportPage() {
             {/* 5. SUCCESS STATE */}
             {status === 'success' && result && (
               <div className="studio-success-feed fade-in">
-                {/* Verdict Summary Card */}
+                <RiskScoreGauge
+                  metrics={riskMetrics}
+                  language={language}
+                  onOpenConfig={() => setIsConfigModalOpen(true)}
+                  showCategoryBreakdown={true}
+                />
+
                 <div className="studio-verdict-card">
                   <div className="verdict-header">
                     <span className="verdict-label">
-                      {language === 'hi' ? 'ऑडिट सारांश' : 'Audit Summary'}
+                      {language === 'hi' ? 'कानूनी ऑडिट निष्कर्ष' : 'Legal Audit Verdict'}
                     </span>
                     <span className="flags-count-tag">
-                      {result.flags?.length || 0} {language === 'hi' ? 'शर्तें चिह्नित' : 'Clauses Flagged'}
+                      {flags.length} {language === 'hi' ? 'शर्तें चिह्नित' : 'Clauses Flagged'}
                     </span>
                   </div>
                   {result.summary && (
@@ -392,7 +426,6 @@ export default function ReportPage() {
                   )}
                 </div>
 
-                {/* Dropped items note */}
                 {result.droppedCount > 0 && (
                   <div className="notice-dropped" role="status">
                     <span className="notice-icon" aria-hidden="true">ℹ️</span>
@@ -405,36 +438,137 @@ export default function ReportPage() {
                   </div>
                 )}
 
-                {/* Flag Cards */}
-                <div className="flags-feed">
-                  {Array.isArray(result.flags) &&
-                    result.flags.map((flag, idx) => (
-                      <FlagCard
-                        key={idx}
-                        flag={flag}
-                        riskLevel={result.overall_risk}
-                      />
-                    ))}
+                <div className="negotiation-toolbar-card">
+                  <div className="neg-toolbar-top">
+                    <div className="neg-toolbar-title-group">
+                      <span className="neg-toolbar-icon">⚖️</span>
+                      <div>
+                        <h4 className="neg-toolbar-title">
+                          {language === 'hi' ? 'इंटरैक्टिव अनुबंध बातचीत व क्लॉज़ संशोधन' : 'Interactive Negotiation & Redlining Workspace'}
+                        </h4>
+                        <p className="neg-toolbar-desc">
+                          {language === 'hi'
+                            ? 'शर्तों की स्थिति बदलें या कानूनी संशोधन संपादित करें। आपका जोखिम स्कोर तुरंत घटेगा।'
+                            : 'Mark clauses as agreed or customize counter-offers to dynamically lower your risk score.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm generate-packet-btn"
+                      onClick={() => setIsExportModalOpen(true)}
+                    >
+                      📜 {language === 'hi' ? 'पैकेट बनाएं (ईमेल/व्हाट्सएप/Addendum)' : 'Export Counter-Proposals'}
+                    </button>
+                  </div>
+
+                  <div className="neg-filter-tabs">
+                    <button
+                      type="button"
+                      className={`neg-tab-btn ${clauseFilter === 'all' ? 'active' : ''}`}
+                      onClick={() => setClauseFilter('all')}
+                    >
+                      {language === 'hi' ? 'सभी शर्तें' : 'All Clauses'} ({flags.length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`neg-tab-btn ${clauseFilter === 'pending' ? 'active' : ''}`}
+                      onClick={() => setClauseFilter('pending')}
+                    >
+                      🔴 {language === 'hi' ? 'बातचीत हेतु' : 'To Negotiate'} ({flags.length - negotiatedCount})
+                    </button>
+                    {dealbreakerCount > 0 && (
+                      <button
+                        type="button"
+                        className={`neg-tab-btn dealbreaker-tab ${clauseFilter === 'dealbreaker' ? 'active' : ''}`}
+                        onClick={() => setClauseFilter('dealbreaker')}
+                      >
+                        ⚠️ {language === 'hi' ? 'अनिवार्य शर्तें' : 'Dealbreakers'} ({dealbreakerCount})
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className={`neg-tab-btn ${clauseFilter === 'negotiated' ? 'active' : ''}`}
+                      onClick={() => setClauseFilter('negotiated')}
+                    >
+                      ✓ {language === 'hi' ? 'सुलझाई गई' : 'Resolved'} ({negotiatedCount})
+                    </button>
+                    <button
+                      type="button"
+                      className={`neg-tab-btn ${clauseFilter === 'financial' ? 'active' : ''}`}
+                      onClick={() => setClauseFilter('financial')}
+                    >
+                      💰 {language === 'hi' ? 'वित्तीय' : 'Financial'}
+                    </button>
+                    <button
+                      type="button"
+                      className={`neg-tab-btn ${clauseFilter === 'lockin' ? 'active' : ''}`}
+                      onClick={() => setClauseFilter('lockin')}
+                    >
+                      🔒 {language === 'hi' ? 'लॉक-इन' : 'Lock-in'}
+                    </button>
+                  </div>
                 </div>
 
-                {/* Missing from agreement */}
+                <div className="flags-feed">
+                  {filteredFlags.length === 0 ? (
+                    <div className="empty-filter-state">
+                      <p>
+                        {language === 'hi'
+                          ? 'इस फ़िल्टर में कोई क्लॉज़ नहीं है।'
+                          : 'No clauses match the selected negotiation filter.'}
+                      </p>
+                    </div>
+                  ) : (
+                    filteredFlags.map((flag) => {
+                      const originalIdx = flags.indexOf(flag);
+                      return (
+                        <NegotiationCard
+                          key={originalIdx}
+                          index={originalIdx}
+                          flag={flag}
+                          negotiationState={negotiationStates[originalIdx] || 'pending'}
+                          onUpdateState={updateNegotiationState}
+                          customClause={customClauses[originalIdx]}
+                          onUpdateCustomClause={updateCustomClause}
+                          language={language}
+                        />
+                      );
+                    })
+                  )}
+                </div>
+
                 {Array.isArray(result.missing) && result.missing.length > 0 && (
-                  <section className="missing-card">
-                    <h3 className="missing-title">
-                      ⚠️ {language === 'hi' ? 'आपके समझौते में गैर-मौजूद महत्वपूर्ण शर्तें' : 'Missing from your agreement'}
-                    </h3>
-                    <ul className="missing-list">
-                      {result.missing.map((item, idx) => (
-                        <li key={idx}>{item}</li>
-                      ))}
-                    </ul>
-                  </section>
+                  <MissingClausesSection
+                    missing={result.missing}
+                    language={language}
+                  />
                 )}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      <RiskConfigModal
+        isOpen={isConfigModalOpen}
+        onClose={() => setIsConfigModalOpen(false)}
+        config={riskConfig}
+        onSaveConfig={setRiskConfig}
+        currentResult={result}
+        language={language}
+      />
+
+      <NegotiationExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        result={result}
+        metrics={riskMetrics}
+        negotiationStates={negotiationStates}
+        customClauses={customClauses}
+        language={language}
+      />
     </div>
   );
 }
