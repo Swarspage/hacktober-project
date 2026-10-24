@@ -15,6 +15,16 @@ export function AnalysisProvider({ children }) {
   const [selectedSampleId, setSelectedSampleId] = useState(SAMPLES[0]?.id || '');
   const [activeHighlightQuote, setActiveHighlightQuote] = useState(null);
 
+  // Bring Your Own API Key (BYOK) State
+  const [apiKey, setApiKeyState] = useState(() => {
+    try {
+      return localStorage.getItem('gemini_api_key') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+
   // Dynamic Risk Engine Configuration
   const [riskConfig, setRiskConfigState] = useState(() => loadUserRiskConfig());
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -30,6 +40,20 @@ export function AnalysisProvider({ children }) {
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
+
+  // Persist API key changes
+  const setApiKey = useCallback((newKey) => {
+    setApiKeyState(newKey);
+    try {
+      if (newKey) {
+        localStorage.setItem('gemini_api_key', newKey);
+      } else {
+        localStorage.removeItem('gemini_api_key');
+      }
+    } catch (err) {
+      console.error('Failed to save API key to local storage:', err);
+    }
+  }, []);
 
   // Persist risk config changes
   const updateRiskConfig = useCallback((newConfig) => {
@@ -60,9 +84,13 @@ export function AnalysisProvider({ children }) {
     const chosen = SAMPLES.find((s) => s.id === sampleId) || SAMPLES[0];
     if (chosen) {
       setText(chosen.content);
-      analyzeState.analyze(chosen.content, language);
+      analyzeState.analyze(chosen.content, language, apiKey);
     }
-  }, [language, resetNegotiations, analyzeState]);
+  }, [language, apiKey, resetNegotiations, analyzeState]);
+
+  const runAnalysis = useCallback((agreementText = text) => {
+    return analyzeState.analyze(agreementText, language, apiKey);
+  }, [text, language, apiKey, analyzeState]);
 
   const updateNegotiationState = useCallback((clauseIdx, status) => {
     setNegotiationStates((prev) => ({
@@ -92,8 +120,14 @@ export function AnalysisProvider({ children }) {
     setSelectedSampleId,
     loadSample,
     loadAndAnalyzeSample,
+    runAnalysis,
     activeHighlightQuote,
     setActiveHighlightQuote,
+    // API Key (BYOK)
+    apiKey,
+    setApiKey,
+    isApiKeyModalOpen,
+    setIsApiKeyModalOpen,
     // Risk Engine
     riskConfig,
     setRiskConfig: updateRiskConfig,
@@ -110,6 +144,7 @@ export function AnalysisProvider({ children }) {
     setIsExportModalOpen,
     // Core analysis hook state
     ...analyzeState,
+    analyze: runAnalysis,
   };
 
   return (

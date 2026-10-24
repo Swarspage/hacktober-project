@@ -192,6 +192,7 @@ export default function ReportPage() {
     updateCustomClause,
     isExportModalOpen,
     setIsExportModalOpen,
+    setIsApiKeyModalOpen,
   } = useAnalysisContext();
 
   const navigate = useNavigate();
@@ -355,14 +356,25 @@ export default function ReportPage() {
             {status === 'error' && error && (
               <div className="error-box fade-in" role="alert">
                 <div className="error-message">{error.message}</div>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => analyze(text, language)}
-                  style={{ marginTop: '12px' }}
-                >
-                  {language === 'hi' ? 'पुनः प्रयास करें' : 'Try again'}
-                </button>
+                <div className="error-actions-group" style={{ marginTop: '12px', display: 'flex', gap: '10px' }}>
+                  {error.type === 'api-key' ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => setIsApiKeyModalOpen(true)}
+                    >
+                      🔑 {language === 'hi' ? 'अपनी Gemini API कुंजी जोड़ें' : 'Add / Check Gemini API Key'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => analyze(text, language)}
+                    >
+                      {language === 'hi' ? 'पुनः प्रयास करें' : 'Try again'}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

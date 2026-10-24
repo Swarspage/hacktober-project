@@ -91,6 +91,8 @@ export default function HomePage() {
     loadSample,
     analyze,
     status,
+    apiKey,
+    setIsApiKeyModalOpen,
   } = useAnalysisContext();
 
   const navigate = useNavigate();
@@ -131,6 +133,28 @@ export default function HomePage() {
         </div>
         <h1 className="hero-h1">{t.heroH1}</h1>
         <p className="hero-subtext">{t.heroSubtext}</p>
+
+        {/* Bring Your Own Key (BYOK) Status Banner */}
+        <div className="home-byok-bar">
+          <div className="byok-status-group">
+            <span className={`byok-dot ${apiKey ? 'active' : 'prompt'}`} />
+            <span className="byok-status-pill">
+              {apiKey
+                ? (language === 'hi' ? '✓ Google Gemini API कुंजी सक्रिय' : '✓ Personal Gemini API Key Active')
+                : (language === 'hi' ? '🔑 Bring Your Own Key (BYOK)' : '🔑 Bring Your Own Key (BYOK)')}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="btn-byok-action"
+            onClick={() => setIsApiKeyModalOpen(true)}
+          >
+            {apiKey
+              ? (language === 'hi' ? 'कुंजी बदलें ⚙️' : 'Change Key ⚙️')
+              : (language === 'hi' ? 'अपनी निःशुल्क API कुंजी जोड़ें ➔' : 'Add Free Gemini Key ➔')}
+          </button>
+        </div>
 
         {/* Clean Executive Input Card */}
         <div className="home-input-card">

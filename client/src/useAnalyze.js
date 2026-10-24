@@ -35,7 +35,7 @@ export function useAnalyze() {
     setStatus('cancelled');
   }, []);
 
-  const analyze = useCallback(async (text, language = 'en') => {
+  const analyze = useCallback(async (text, language = 'en', apiKey = '') => {
     const trimmed = (text || '').trim();
     if (!trimmed) {
       return;
@@ -52,7 +52,7 @@ export function useAnalyze() {
     }
 
     // Retain parameters for "Try again"
-    lastParamsRef.current = { text, language };
+    lastParamsRef.current = { text, language, apiKey };
 
     // Abort any existing in-flight request
     if (abortControllerRef.current) {
@@ -79,13 +79,21 @@ export function useAnalyze() {
       controller.abort('timeout');
     }, 90000);
 
+    const apiBase = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : '');
+    const endpoint = `${apiBase}/analyze`;
+
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    if (apiKey) {
+      headers['x-api-key'] = apiKey;
+    }
+
     try {
-      const response = await fetch('http://localhost:5000/analyze', {
+      const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text, language }),
+        headers,
+        body: JSON.stringify({ text, language, apiKey }),
         signal: controller.signal,
       });
 
@@ -99,6 +107,16 @@ export function useAnalyze() {
           setError({
             type: 'over-length',
             message: 'This agreement is too long. Paste up to 15,000 characters.',
+          });
+          return;
+        }
+
+        if (response.status === 401 || errData.code === 'MISSING_API_KEY' || errData.code === 'INVALID_API_KEY') {
+          setStatus('error');
+          setError({
+            type: 'api-key',
+            code: errData.code || 'MISSING_API_KEY',
+            message: errData.error || 'Please provide your Google Gemini API key to run analysis.',
           });
           return;
         }
