@@ -4,11 +4,10 @@
 [![Live Demo](https://img.shields.io/badge/Live_Demo-hacktober.swarshinde.dev-1E40AF?style=for-the-badge&logo=google-chrome&logoColor=white)](https://hacktober.swarshinde.dev)
 [![GitHub Stars](https://img.shields.io/github/stars/Swarspage/hacktober-project?style=for-the-badge&logo=github&color=0F172A)](https://github.com/Swarspage/hacktober-project/stargazers)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge&logo=git&logoColor=white)](https://github.com/Swarspage/hacktober-project/pulls)
-[![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-2026_Hack_Day-FF7A00?style=for-the-badge&logo=hacktoberfest&logoColor=white)](https://hacktoberfest.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 [![Open Issues](https://img.shields.io/github/issues/Swarspage/hacktober-project?style=for-the-badge&logo=github)](https://github.com/Swarspage/hacktober-project/issues)
 
-> **An open-source LegalTech AI initiative for Hacktoberfest 2026 Hack Day Mumbai.**  
+> **An open-source LegalTech AI application built during Hack Day Mumbai.**  
 > **Author & Lead Maintainer:** [Swar Shinde](https://github.com/Swarspage)  
 > **Live Web App:** [https://hacktober.swarshinde.dev](https://hacktober.swarshinde.dev)  
 > **Repository:** [https://github.com/Swarspage/hacktober-project](https://github.com/Swarspage/hacktober-project)
@@ -146,7 +145,9 @@ The project includes 6 benchmark agreements in the studio dropdown for immediate
 
 ## 🤝 Contributing to Agreement RedFlag Reader
 
-Contributions are warmly welcomed from developers, legal practitioners, and designers! We actively participate in **Hacktoberfest** and welcome Pull Requests of all experience levels.
+Contributions are warmly welcomed from developers, legal practitioners, and designers!
+
+> ℹ️ **Notice:** While this project was initially developed during the *Hack Day Mumbai* hackathon, this repository is **not** an official Hacktoberfest PR repository. Genuine bug fixes, feature proposals, and high-quality open-source pull requests are always welcome!
 
 ### 🌟 How to Contribute
 
@@ -221,7 +222,7 @@ This project is licensed under the **[MIT License](LICENSE)** — feel free to u
 ## 👨‍💻 Maintainer & Acknowledgments
 
 - **Lead Author & Maintainer:** **[Swar Shinde](https://github.com/Swarspage)**
-- **Event:** Built for **Hacktoberfest 2026 Hack Day Mumbai**
+- **Event:** Built at **Hack Day Mumbai 2026**
 - **Live Deployment:** [https://hacktober.swarshinde.dev](https://hacktober.swarshinde.dev)
 
 ⭐ If you find this project helpful or inspiring, please give it a star on GitHub!
